@@ -9,7 +9,7 @@ This is the first and only *individual* (as opposed to *team*) project this seme
 
 Term: Spring 2023
 
-+ Projec title: Analysis on Philosophy Data about the General Topic and Sentiment
++ Projec title: Philosophy Data Story
 + This project is conducted by Sicheng Zhou
 
 + Project summary: This project analyzes the philosophy dataset by exploring some fundamental facts including the number of unique authors, the number of philosophical schools, and the historical development of each school. This project also explores the basic topic of each school by generating wordcloud plots on each school and calculates the sentiment scores of each school to investigate whether some genres convey a more positive attitude than the other. 
