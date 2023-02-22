@@ -1,0 +1,141 @@
+---
+title: "Philosophy Data Story"
+author: "Sicheng Zhou - sz3094"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+
+```{r, warning=FALSE, message=FALSE,echo=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, message = FALSE}
+library(ggplot2)
+library(tm)
+library(sentimentr)
+library(tidytext)
+library(tidyverse)
+library(DT)
+library(wordcloud)
+library(vistime)
+library(dplyr)
+library(lubridate)
+```
+
+```{r}
+data <- read.csv("philosophy_data.csv", stringsAsFactors = FALSE)
+```
+
+## Question 1: How many authors are included in this data set? How are their publication date distributed throughout the timeline?
+
+```{r}
+unique(data$author)
+```
+
+As the first step to analyze this dataset, I decided to look at how many unique philosophers were included. We can see that there are in total 36 unique authors belonging to different philosophy schools. 
+
+```{r}
+unique(data$school)
+```
+
+```{r}
+school <- data %>% group_by(school) %>% summarize(work_counts = n()) %>% arrange(work_counts)
+barplot(school$work_counts, names.arg = school$school, 
+        col = rainbow(13), space = 3, cex.names = 0.7)
+```
+
+We can also take a look at the unique philosophy schools included in this data set and the number of works belonging to each school. There are in total 13 distinct philosophy genres, and the school of analytic contains the greatest amount of works in this dataset while the stoicism contains the least amount of works. Afterwards, an interesting question would be that how long each school lasted in the history. 
+
+```{r}
+school_date <- data %>% select(school, original_publication_date) %>% distinct() %>% group_by(school) %>% summarize(start = min(original_publication_date), end = max(original_publication_date)) %>% arrange(start) %>% mutate("Duration" = end - start + 1)
+barplot(school_date$Duration, names.arg = school_date$school, 
+        col = rainbow(13), space = 3, cex.names = 0.7, las = 2,
+        ylim = c(0, 200))
+```
+
+From this barplot, we can roughly get an idea of how long each philosophy school dominated the history. We can see that the school of feminism has lasted for nearly 200 years, and the school of capitalism has lasted for more than 150 years. Comparatively, the school of Plato, the school of Aritotle, and the school of Nietzsche had relatively short dominant time. 
+
+Naturally, another interesting question arise is, when was each school first appeared in the history? If their births have to do with certain historical events?
+
+Based on the first glimpse of the data, we can see that most of the philosophy schools first appeared during the modern time. Therefore, we can draw a timeline on these modern-period philosophy schools to take a closer look on how they were developed. 
+
+```{r, warning=FALSE}
+school_date <- data %>% select(school, original_publication_date) %>% distinct() %>% group_by(school) %>% summarize(start = min(original_publication_date), end = max(original_publication_date)) %>% arrange(start)
+school_date$start <- as.Date(ISOdate(school_date$start, 1, 1))
+school_date$end <- as.Date(ISOdate(school_date$end, 1, 1))
+school_date$start[1:2] <- c(make_date(year = -350L), make_date(year = -320L))
+school_date$end[1:2] <- c(make_date(year = -350L), make_date(year = -320L))
+vistime(school_date[4:nrow(school_date), ], events = "school", 
+                     start = "start", end = "end", )
+```
+
+From the timeline, we can see that we have several dominant schools including empiricism, rationalism, german idealism, and capitalism that prospered for about two centuries. Afterwards, we have communism and nietzsche. As we enter 20th century, several popular schools of philosophy include phenomenology, analytic, capitalism, feminism, and continental. Furthermore, we also realized that most of the births of philosophy schools are closely connected with some historical milestones. For example, the time that the school of Capitalism and the school of Communism first appeared was relevant to the rise of social capitalism and communism. 
+
+## Question 2: How are the school distinct from each other? What is the main theme discussed by the certain school? 
+
+In order to analyze what are the distinctions among these schools, I decided to analyze what are the most frequent words appeared in these philosophy works by plotting word clouds. I first removed some meaningless words, including "one", "will", "must", "may", "can", "way", "therefore", "something", "also", "things", "even", "say", and "now". 
+
+```{r, warning = FALSE}
+for(i in unique(data$school)){
+  school_data <- data[data$school == i, "sentence_lowered"]
+  clean_text <- gsub("one|will|must|may|can|way|therefore|something|also|things|even|say|now|man|said|another",
+                   "", removePunctuation(school_data))
+  wordcloud(clean_text, scale=c(3,0.2), max.words=250,
+            random.order=FALSE,
+            rot.per=0.35, 
+            use.r.layout=TRUE,
+            colors=brewer.pal(8, "Dark2"))
+  title(i)
+}
+```
+
+From the generated wordclouds, we can see some very interesting words that are frequently mentioned by the philosophers. For example, the most frequent words for empiricisms are "ideas" and "idea". For rationalism, the relationship among "god", "mind", and "body" seems to be a popular topic. For the school of analytic, we have "true", "sense", "theory", "proposition", "question", and "fact". For communism, the most frequent words include "labour", "value", "capital", "production", and "work", which is actually very similar to the school of capitalism except that they may hold an opposite opinion on these topics. For feminism, the general topic clearly involves "women" and "men", "mother" and "wife", "marriage" and life. Therefore, from these wordclouds, we have already gained some overall perceptions and interpretations on the general themes of these philosophy schools. 
+
+## Question 3: Do these distinct philosophical schools share different emotions or sentiments?
+
+After analyzing what are some general topics discussed in each distinct philosophy genre, I was also interested in whether some philosophy schools convey a more positive attitude than other schools. Therefore, I decided to conduct a sentiment analysis on these philosophical works. Out of a time-saving purpose, I decided to filter out philosophical works that are long enough to convey a sentiment. And to save time when knitting, I saved the sentiment scores as a csv file such that I just need to reload them when needed. 
+
+```{r}
+long_work <- data %>% filter(sentence_length >= mean(sentence_length))
+```
+
+```{r, eval = FALSE}
+for(i in 1:nrow(long_work)){
+  long_work$sentiment[i] <- sentiment(removePunctuation(trimws(long_work$sentence_lowered[i])))$sentiment
+}
+```
+
+```{r}
+# write.csv(long_work, "sentiment_score.csv", row.names = FALSE)
+sentiment_score <- read.csv("sentiment_score.csv", stringsAsFactors = FALSE)
+```
+
+```{r}
+sentiment_df <- sentiment_score %>% select(school, sentiment) %>% mutate(sentiment_class = ifelse(sentiment <= -0.3, "Negative", "Neutral"))
+sentiment_df$sentiment_class[sentiment_df$sentiment >= 0.3] <- "Positive"
+sentiment_table <- sentiment_df %>% select(school, sentiment_class) %>% table()
+negative_rate <- sentiment_table[, 1] / apply(sentiment_table, 1, sum)
+neutral_rate <- sentiment_table[, 2] / apply(sentiment_table, 1, sum)
+positive_rate <- sentiment_table[, 3] / apply(sentiment_table, 1, sum)
+df <- data.frame(school = rep(data.frame(sentiment_table, stringsAsFactors = FALSE)$school, 3), rate = c(negative_rate, neutral_rate, positive_rate), sentiments = rep(c("Negative", "Neutral", "Positive"), each = length(negative_rate)), stringsAsFactors = FALSE)
+ggplot(df, aes(x = factor(school), y = rate, fill = sentiments, 
+               colour = sentiments)) + 
+  geom_bar(stat = "identity", position = "dodge") +
+  theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5))
+```
+
+We would define the sentiment to be negative if the sentiment score is less that -0.3, neutral if between 0.3 and -0.3, and positive if greater than 0.3. From the barplot, we can see that most of the philosophical works are neutral. The school of stoicism has the largest positive rate, while the feminism has the largest negative rate. 
+
+The fact that most of the works maintain a neutral attitude is as expected since I proposed that most philosophical articles should be strived to argue for a perspective or topic instead of simply conveying emotions or sentiments. It is interesting to see that Stoicism conveys a positive attitude more frequently, which is potentially due to their promotions of fortitude and stolidity. At the same time, I suspect that the feminism has a more negative expression because their works frequently involve the criticism on the patriarchy.
+
+## Conclusion
+
+**(1)** There are in total 13 distinct philosophy schools included in this data set, where the school of feminism has the longest lasting period in history. 
+
+**(2)** These philosophy schools all have distinct main topics, which is shown through the most frequent words in the works in this data set.
+
+**(3)** Most of the works maintain a neutral attitude. However, the school of stoicism has the largest positive rate, while the feminism has the largest negative rate comparatively. 
+
+
